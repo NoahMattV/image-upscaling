@@ -4,7 +4,22 @@
 // upscale the image by doubling height and width
 // fill in empty areas according to neighboring pixels and difference thresholds
 
+// THREE APPROACHES
+// FIRST APPROACH:
 // each thread will process one pixel
+// SECOND APPROACH:
+// each thread will process one original pixel and surrounding pixels
+// THIRD APPROACH:
+// each thread will process one original pixel and pixels to the right and below
+
+// Two filling approaches:
+// First:
+// Tackle everything at once.
+// Second:
+// Stretch out original image and fill in adjacent pixels with original pixel value,
+// Then go through and SAXPY if original pixel differences aren't too great.
+
+
 // dimension of image: upper left = (0,0), bottom right = (width-1, height-1)
 
 // *bmpOriginal is the original image
@@ -95,6 +110,12 @@ int difference(int Ax, int Ay, int Bx, int By, int stride, unsigned int *bmpOrig
 // Ax, Ay are the coordinates for the nearest original pixel
 // Bx, By are the coordinates for the second nearest original pixel
 // i, j are the coordinates for the current pixel
+
+// can possibly implement a SAXPY operation to fill the missing values more efficiently
+// A = By-Ay or Bx-Ax or (By+Ay)-(Bx+Ax) divided by distance (in our case, 3);
+// Y = Ay or Ax
+// X is 1 or 2, depending on whether we have an adjacent pixel or not.
+
 int fill(int i, int j, int Ax, int Ay, int Bx, int By, int stride, int threshold, unsigned int *bmpOriginal, bool adjacent){
   int diff = (bmpOriginal[Ay*stride + Ax] - bmpOriginal[By*stride + Bx]);
   int dist = 3;
