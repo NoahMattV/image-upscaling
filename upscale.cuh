@@ -1,3 +1,5 @@
+// Author: Noah Van Der Weide
+// 3/30/2020
 
 #ifndef UPSCALE_CUH
 #define UPSCALE_CUH
