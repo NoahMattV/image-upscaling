@@ -1,6 +1,8 @@
 // Author: Noah Van Der Weide
 // 3/30/2020
 
+// PPM image format
+
 // upscale the image by doubling height and width
 // fill in empty areas according to neighboring pixels and difference thresholds
 
