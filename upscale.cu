@@ -1,7 +1,7 @@
 // Author: Noah Van Der Weide
 // 3/30/2020
 
-// PPM image format
+// PPM or PGM image format to start.
 
 // upscale the image by doubling height and width
 // fill in empty areas according to neighboring pixels and difference thresholds
@@ -24,9 +24,9 @@
 
 // dimension of image: upper left = (0,0), bottom right = (width-1, height-1)
 
-// *bmpOriginal is the original image
-// *bmpNew width = *bmpOriginal width * 3 - 2
-// *bmpNew width = *bmpOriginal height * 3 - 2
+// *img_original is the original image
+// *img_new width = *img_original width * 3 - 2
+// *img_new width = *img_original height * 3 - 2
 
 
 // 8 bits per color (0 - 255)
@@ -34,10 +34,10 @@
 // this allows it to be faster for black and white images as it only needs to be called once.
 // Can therefore also be applied to images which use a different color map than RGB (JPEG, for example).
 
-int difference(int Ax, int Ay, int Bx, int By, int stride, unsigned int *bmpOriginal);
-int fill(int i, int j, int Ax, int Ay, int Bx, int By, int stride, int threshold, unsigned int *bmpOriginal, bool adjacent);
+int difference(int Ax, int Ay, int Bx, int By, int stride, unsigned int *img_original);
+int fill(int i, int j, int Ax, int Ay, int Bx, int By, int stride, int threshold, unsigned int *img_original, bool adjacent);
 
-__global__ void upscale(int originalWidth, int originalHeight, int threshold, unsigned int *bmpOriginal, unsigned int *bmpNew){
+__global__ void upscale(int originalWidth, int originalHeight, int threshold, unsigned int *img_original, unsigned int *img_new){
   int i = blockIdx.x * blockDim.x + threadIdx.x;
   int j = blockIdx.y * blockDim.y + threadIdx.y;
 
@@ -63,37 +63,37 @@ __global__ void upscale(int originalWidth, int originalHeight, int threshold, un
   switch (xPos){
     case 0:
       if (yPos == 0){ // corresponds to original image pixel
-        bmpNew[j*newStride + i] = bmpOld[j*originalStride + i];
+        img_new[j*newStride + i] = bmpOld[j*originalStride + i];
       }
       else if (yPos == 1){ // just below original pixel (down + 1)
         // check difference between lower original pixel and original pixel
         // apply based on threshold
-        bmpNew[j*newStride + i] = fill(i, j, i, j, i + 2, j + 2, originalWidth, threshold, bmpOriginal, true);
+        img_new[j*newStride + i] = fill(i, j, i, j, i + 2, j + 2, originalWidth, threshold, img_original, true);
       }
       else{ // yPos == 2 two spaces below original pixel (down + 2)
-        bmpNew[j*newStride + i] = fill(i, j, i, j, i + 2, j + 2, originalWidth, threshold, bmpOriginal, false);
+        img_new[j*newStride + i] = fill(i, j, i, j, i + 2, j + 2, originalWidth, threshold, img_original, false);
       }
       break;
     case 1:
       if (yPos == 0){ // to the right of original pixel
-        bmpNew[j*newStride + i] = bmpOld[j*originalStride + i];
+        img_new[j*newStride + i] = bmpOld[j*originalStride + i];
       }
       else if (yPos == 1){ // diagonally down and right of original pixel (right + 1, down + 1)
-        bmpNew[j*newStride + i] = fill(i, j, i, j, i + 2, j + 2, originalWidth, threshold, bmpOriginal, true);
+        img_new[j*newStride + i] = fill(i, j, i, j, i + 2, j + 2, originalWidth, threshold, img_original, true);
       }
       else{ // yPos == 2 (right + 1, down + 2)
-        bmpNew[j*newStride + i] = fill(i, j, i, j, i + 2, j + 2, originalWidth, threshold, bmpOriginal, false);
+        img_new[j*newStride + i] = fill(i, j, i, j, i + 2, j + 2, originalWidth, threshold, img_original, false);
       }
       break;
     case 2:
       if (yPos == 0){ // (right + 2)
-        bmpNew[j*newStride + i] = bmpOld[j*originalStride + i];
+        img_new[j*newStride + i] = bmpOld[j*originalStride + i];
       }
       else if (yPos == 1){ // (right + 2, down + 1)
-        bmpNew[j*newStride + i] = fill(i, j, i, j, i + 2, j + 2, originalWidth, threshold, bmpOriginal, false);
+        img_new[j*newStride + i] = fill(i, j, i, j, i + 2, j + 2, originalWidth, threshold, img_original, false);
       }
       else{ // yPos == 2 (right + 2, down + 2)
-        bmpNew[j*newStride + i] = fill(i, j, i, j, i + 2, j + 2, originalWidth, threshold, bmpOriginal, false);
+        img_new[j*newStride + i] = fill(i, j, i, j, i + 2, j + 2, originalWidth, threshold, img_original, false);
       }
       break;
     default:
@@ -105,8 +105,8 @@ __global__ void upscale(int originalWidth, int originalHeight, int threshold, un
 
 // Ax, Ay are the coordinates for the nearest original pixel
 // Bx, By are the coordinates for the second nearest original pixel
-int difference(int Ax, int Ay, int Bx, int By, int stride, unsigned int *bmpOriginal){
-  return (bmpOriginal[Ay*stride + Ax] - bmpOriginal[By*stride + Bx]);
+int difference(int Ax, int Ay, int Bx, int By, int stride, unsigned int *img_original){
+  return (img_original[Ay*stride + Ax] - img_original[By*stride + Bx]);
 }
 
 // Ax, Ay are the coordinates for the nearest original pixel
@@ -118,8 +118,8 @@ int difference(int Ax, int Ay, int Bx, int By, int stride, unsigned int *bmpOrig
 // Y = Ay or Ax
 // X is 1 or 2, depending on whether we have an adjacent pixel or not.
 
-int fill(int i, int j, int Ax, int Ay, int Bx, int By, int stride, int threshold, unsigned int *bmpOriginal, bool adjacent){
-  int diff = (bmpOriginal[Ay*stride + Ax] - bmpOriginal[By*stride + Bx]);
+int fill(int i, int j, int Ax, int Ay, int Bx, int By, int stride, int threshold, unsigned int *img_original, bool adjacent){
+  int diff = (img_original[Ay*stride + Ax] - img_original[By*stride + Bx]);
   int dist = 3;
 
   //if ((By - Ay) > (Bx - Ax))
@@ -130,14 +130,14 @@ int fill(int i, int j, int Ax, int Ay, int Bx, int By, int stride, int threshold
   if (diff < threshold){ // apply third-average
     int step = diff/dist;
     if (adjacent == false) // if non-adjacent to (Ax, Ay) -- apply Ax,Ay + step*2
-      return (bmpOriginal[Ay*stride + Ax] + step*2);
+      return (img_original[Ay*stride + Ax] + step*2);
     else // adjacent pixel
-      return (bmpOriginal[Ay*stride + Ax] + step);
+      return (img_original[Ay*stride + Ax] + step);
   }
   else{ // threshold exceeded. Apply same value as nearest original neighbor.
     if (adjacent == false) // non-adjacent to (Ax, Ay)
-      return bmpOriginal[By*stride + Bx];
+      return img_original[By*stride + Bx];
     else // adjacent pixel
-      return bmpOriginal[Ay*stride + Ax];
+      return img_original[Ay*stride + Ax];
   }
 }

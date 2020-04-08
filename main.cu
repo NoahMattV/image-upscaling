@@ -21,7 +21,13 @@ int main (int argc, char * argv[]){
   cudaEventCreate(&stop);
   float ms;
 
-
+  // file handling
+  char *image_filename = "input_image.pgm";
+  unsigned int width, height;
+  // image array in cpu
+  unsigned char* h_image = NULL;
+  // load pgm
+  cutLoadPGMub(image_filename, &h_image, &width, &height);
 
 
   cudaEventRecord(start);
