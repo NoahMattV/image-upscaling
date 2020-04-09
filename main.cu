@@ -1,7 +1,7 @@
 // Author: Noah Van Der Weide
 // main.cu for image-upscaling with CUDA
 //
-// 1. take in user specified PPM image
+// 1. take in user specified PPM/PGM image
 // 2. determine width and height
 // 3. convert to vector/array
 // 4. create new vector/array with larger dimensions
@@ -10,6 +10,7 @@
 // 7. clean up (if needed)
 
 #include "upscale.cuh"
+#include "pgm.cuh"
 #include <iostream>
 
 
