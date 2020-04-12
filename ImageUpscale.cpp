@@ -1,5 +1,5 @@
 // Author: Noah Van Der Weide
-// main.cu for image-upscaling with CUDA
+// ImageUpscale.cpp for image-upscaling with CUDA
 //
 // 1. take in user specified PPM/PGM image
 // 2. determine width and height
@@ -12,6 +12,13 @@
 #include "upscale.cuh"
 #include "pgm.cuh"
 #include <iostream>
+#include <stdlib.h>
+#include <string.h>
+#include <cuda_runtime.h>
+// includes, project
+// These were used in CUDA samples. I'm not sure if they would be useful or not.
+//#include <helper_functions.h> // includes for SDK helper functions
+//#include <helper_cuda.h>      // includes for cuda initialization and error checking
 
 
 int main (int argc, char * argv[]){
@@ -23,7 +30,7 @@ int main (int argc, char * argv[]){
   float ms;
 
   // file handling
-  char *image_filename = "input_image.pgm";
+  char *image_filename = "lena.pgm";
   unsigned int width, height;
   // image array in cpu
   unsigned char* h_image = NULL;
@@ -32,7 +39,7 @@ int main (int argc, char * argv[]){
 
 
   cudaEventRecord(start);
-  // upscale.cu here
+  // upscale.cu here (this may have to be a kernel)
   cudaEventRecord(stop);
   cudaEventSynchronize(stop);
   cudaEventElapsedTime(&ms, start, stop);

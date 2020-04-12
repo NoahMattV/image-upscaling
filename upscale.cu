@@ -34,9 +34,6 @@
 // this allows it to be faster for black and white images as it only needs to be called once.
 // Can therefore also be applied to images which use a different color map than RGB (JPEG, for example).
 
-int difference(int Ax, int Ay, int Bx, int By, int stride, unsigned int *img_original);
-int fill(int i, int j, int Ax, int Ay, int Bx, int By, int stride, int threshold, unsigned int *img_original, bool adjacent);
-
 __global__ void upscale(int originalWidth, int originalHeight, int threshold, unsigned int *img_original, unsigned int *img_new){
   int i = blockIdx.x * blockDim.x + threadIdx.x;
   int j = blockIdx.y * blockDim.y + threadIdx.y;

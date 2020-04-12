@@ -43,7 +43,7 @@ void loadImage(int *image, int width, int height, int grayscale, string filename
     &width = stoi(dim[0]);
     &height = stoi(dim[0]);
 
-    cout << "Image is " << width << " x " << heigh << endl;
+    cout << "Image is " << width << " x " << height << endl;
 
     // grayscale values
     getline(image_in, line);
