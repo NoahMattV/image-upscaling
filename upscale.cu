@@ -34,9 +34,22 @@
 // this allows it to be faster for black and white images as it only needs to be called once.
 // Can therefore also be applied to images which use a different color map than RGB (JPEG, for example).
 
-__global__ void upscale(int originalWidth, int originalHeight, int threshold, unsigned int *img_original, unsigned int *img_new){
+
+__global__ void upscale(unsigned char * img, int originalHeight, int originalWidth, int channels){
+//__global__ void upscale(int originalWidth, int originalHeight, int threshold, unsigned int *img_original, unsigned int *img_new){
+
   int i = blockIdx.x * blockDim.x + threadIdx.x;
   int j = blockIdx.y * blockDim.y + threadIdx.y;
+  int x = blockIdx.x;
+  int y = blockIdx.y;
+  int idx = (x + y * gridDim.x) * channels;
+
+
+  // not relevant to code function, but shows how a thread could access a pixel in every channel.
+  // pixel values are from 0 to 255.
+  for (int k = 0; k < channels; k++){
+    img[idx + k];
+  }
 
   int newStride = 3; // this may just be newWidth or newHeight
   int originalStride = 1;
@@ -137,4 +150,27 @@ int fill(int i, int j, int Ax, int Ay, int Bx, int By, int stride, int threshold
     else // adjacent pixel
       return img_original[Ay*stride + Ax];
   }
+}
+
+void upscale_CUDA(unsigned char * input_img, int height, int width, int channels){
+  unsigned char * Dev_Input_Img = NULL;
+
+  int newWidth = width * 3 - 2;
+  int newHeight = height * 3 - 2;
+  int size = newWidth * newHeight * channels;
+  // allocate memory in GPU
+  cudaMalloc((void**)&Dev_Input_Img, size);
+
+  // copy data from CPU to GPU
+  cudaMemcpy(Dev_Input_Img, input_img, size, cudaMemcpyHostToDevice);
+
+  dim3 grid_img(width, height);
+  upscale<<<grid_img, 1>>>(Dev_Input_Img, height, width, channels);
+
+  // copy data back from GPU to CPU
+  cudaMemcpy(Dev_Input_Img, input_img, size, cudaMemcpyDeviceToHost);
+
+  // free GPU
+  cudaFree(Dev_Input_Img);
+
 }
