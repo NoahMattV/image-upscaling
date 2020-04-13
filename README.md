@@ -1,7 +1,11 @@
-ME 759 Final Project
+ME 759 Spring 2020 Final Project
+
 Noah Van Der Weide
 
-Image upscaling using CUDA
+University of Wisconsin - Madison
 
-The program will take a PPM formatted image as it's the easiest to manipulate.
-Possibly expand to other image formats in the future.
+Image upscaling using CUDA
+--------------------------
+The program uses OpenCV to take in any standard image format (.jpg, .png, .ppm, .bmp, etc.) and turn it into an array of unsigned chars. 
+
+More will be added here as things progress..
