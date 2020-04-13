@@ -38,6 +38,12 @@
 __global__ void upscale(unsigned char * img, int originalHeight, int originalWidth, int channels){
 //__global__ void upscale(int originalWidth, int originalHeight, int threshold, unsigned int *img_original, unsigned int *img_new){
 
+  // not using shared memory right now
+  // there is 48 KB of shared memory available.
+  // images are typically more than that, so I'll have to think about how it could be implemented
+  //extern __shared__ unsigned char pic[];
+  //unsigned char * imgData = pic;
+
   int i = blockIdx.x * blockDim.x + threadIdx.x;
   int j = blockIdx.y * blockDim.y + threadIdx.y;
   int x = blockIdx.x;

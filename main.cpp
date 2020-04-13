@@ -63,7 +63,7 @@ int main (int argc, char * argv[]){
   // IMREAD_COLOR loads image in BGR 8-bit format
   // IMREAD_UNCHANGED includes alpha channel
   // IMREAD_GRAYSCALE loads as intensity 0-1
-  string image_path = samples::findFile("test.jpg");
+  string image_path = samples::findFile("peppers.png");
   Mat img = imread(image_path, IMREAD_COLOR);
 
   // check if image loaded properly
@@ -82,7 +82,7 @@ int main (int argc, char * argv[]){
 
 
   // save new image
-  imwrite("upscaled_image.jpg", new_img);
+  imwrite("upscaled_image.png", new_img);
   system("pause");
 
   cudaEventRecord(start);
