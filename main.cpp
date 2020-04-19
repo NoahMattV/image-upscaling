@@ -9,9 +9,13 @@
 // 6. export new upscaled image and time to complete
 // 7. clean up (if needed)
 
+// OpenCV has a resize function which performs a very similar task with adjustable dimensions. They do not, however, utilize GPU or allow for a threshold.
+// It can also be very slow given the interpolation method. 
+
 #include "upscale.cuh"
-#include "pgm.cuh"
+//#include "pgm.cuh"
 #include <iostream>
+#include <vector>
 #include <stdlib.h>
 #include <string.h>
 #include <cuda_runtime.h>
@@ -51,7 +55,7 @@ using namespace cv;
 
 int main (int argc, char * argv[]){
 
-  unsigned int threshold = atoi(argv[1]);
+  int threshold = atoi(argv[1]);
 
   // CUDA timing parameters
   cudaEvent_t start, stop;
@@ -64,29 +68,34 @@ int main (int argc, char * argv[]){
   // IMREAD_UNCHANGED includes alpha channel
   // IMREAD_GRAYSCALE loads as intensity 0-1
   string image_path = samples::findFile("peppers.png");
-  Mat img = imread(image_path, IMREAD_COLOR);
+  Mat src = imread(image_path, IMREAD_COLOR);
 
   // check if image loaded properly
-  if(img.empty()){
+  if(src.empty()){
     cout << "Could not read image: " << image_path << endl;
     return 1;
   }
 
-  unsigned int height = img.rows;
-  unsigned int width = img.cols;
+  int height = src.rows;
+  int width = src.cols;
+  int channels = src.channels;
+  int type = src.type;
 
-  cout << "Loaded " << image_path << "--  " << height << ", " << width << " -- Channels: " << img.channels() << endl;
+  cout << "Loaded " << image_path << "--  " << height << ", " << width << " -- Channels: " << channels << endl;
+  
+  
+  
+  // create new image with same datatype as input
+  unsigned int newHeight = src.rows * 3 - 2;
+  unsigned int newWidth = src.cols * 3 - 2;
+  Mat dst(newHeight, newWidth, type);
 
-  // call upscale function here
 
-
-
-  // save new image
-  imwrite("upscaled_image.png", new_img);
-  system("pause");
+  imwrite("upscaled_image.png", dst);
+  waitKey(0);
 
   cudaEventRecord(start);
-  // upscale.cu here (this may have to be a kernel)
+  upscale(dst, src, threshold);
   cudaEventRecord(stop);
   cudaEventSynchronize(stop);
   cudaEventElapsedTime(&ms, start, stop);

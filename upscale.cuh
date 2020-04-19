@@ -4,8 +4,14 @@
 #ifndef UPSCALE_CUH
 #define UPSCALE_CUH
 
-upscale_CUDA(unsigned char * input_img, int height, int width, int channels);
-__global__ void upscale(int originalWidth, int originalHeight, int threshold, unsigned int *bmpOriginal, unsigned int *bmpNew);
+#include "cuda_runtime.h"
+#include "device_launch_parameters.h"
 
-int difference(int Ax, int Ay, int Bx, int By, int stride, unsigned int *img_original);
-int fill(int i, int j, int Ax, int Ay, int Bx, int By, int stride, int threshold, unsigned int *img_original, bool adjacent);
+//void upscale(unsigned char* input_img, int height, int width, int channels, int threshold);
+void upscale(unsigned char * dst, unsigned char * src, int src_height, int src_width, int src_channels, int threshold);
+__global__ void upscale_CUDA(unsigned char* dst, unsigned char * src, int src_height, int src_width, int src_channels, int threshold);
+
+__global__ void difference(int result, int Ax, int Ay, int Bx, int By, int stride, unsigned char * img);
+__global__ void fill(int i, int j, int Ax, int Ay, int Bx, int By, int stride, int threshold, unsigned char * img, bool adjacent);
+
+#endif
