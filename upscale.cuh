@@ -11,7 +11,4 @@
 void upscale(unsigned char * dst, unsigned char * src, int src_height, int src_width, int src_channels, int threshold);
 __global__ void upscale_CUDA(unsigned char* dst, unsigned char * src, int src_height, int src_width, int src_channels, int threshold);
 
-__global__ void difference(int result, int Ax, int Ay, int Bx, int By, int stride, unsigned char * img);
-__global__ void fill(int i, int j, int Ax, int Ay, int Bx, int By, int stride, int threshold, unsigned char * img, bool adjacent);
-
 #endif

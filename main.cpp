@@ -95,7 +95,8 @@ int main (int argc, char * argv[]){
   waitKey(0);
 
   cudaEventRecord(start);
-  upscale(dst, src, threshold);
+  //void upscale(unsigned char* dst, unsigned char* src, int src_height, int src_width, int src_channels, int threshold)
+  upscale(dst.data, src.data, src.rows, src.cols, channels, threshold);
   cudaEventRecord(stop);
   cudaEventSynchronize(stop);
   cudaEventElapsedTime(&ms, start, stop);
