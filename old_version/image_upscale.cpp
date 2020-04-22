@@ -14,39 +14,33 @@
 
 
 #include <iostream>
-#include <vector>
-#include <stdlib.h>
-#include <string.h>
-#include <cuda_runtime.h>
-#include <device_launch_parameters.h> // do I need this?
+#include <stdio.h>
+//#include <stdlib.h>
+//#include <string.h>
 
 // opencv is used for reading and saving images
 // this will allow the use of jpegs, pngs, bmps, ppms, etc.
 // see below for instructions on adding these libraries
+
 #include <opencv2/opencv.hpp>
 #include <opencv2/core/core.hpp>
 #include <opencv2/highgui/highgui.hpp>
-#include "upscale.cuh"
+//#include <opencv2/imgproc/imgproc.hpp>
+#include "Image_Upscale.h"
+
 // may need to change configuration of project
 // Active solution configuration: Release (debug is much slower)
 // Active solution platform: x64
 
 // don't forget to add opencv libraries in visual studio:
-// right click main file on right side > properties > C/C++ > additional include directories > edit > find OpenCV-2.4.9 (or whatever version you have) > select 'Include' folder.
-// while still in "additional include directories", hit 'new folder' and specify opencv and opencv2 subdirectories of include as well
-// ...\include
-// ...\include\opencv
-// ...\include\opencv2
+// right click main file on right side > properties > C/C++ > additional include directories > edit > find OpenCV-4.3.0 (or whatever version you have) > select 'Include' folder.
+// while still in "additional include directories", hit 'new folder'
+// ...build\include
 // hit 'apply'
-// Properties > Linker > Additional Library Directories > Add OpenCV\x64\vc12 (or latest version)\lib
-// Linker > Input > Additional Dependencies > add "opencv_core249.lib" and "opencv_highgui249.lib" (replace 249 with whatever version you have)
+// Properties > Linker > Additional Library Directories > Add OpenCV\x64\vc15 (or latest version)\lib
+// Linker > Input > Additional Dependencies > add "opencv_world430.lib" (replace 430 with whatever version you have)
 // ok and apply
 
-
-// includes, project
-// These were used in CUDA samples. I'm not sure if they would be useful or not.
-//#include <helper_functions.h> // includes for SDK helper functions
-//#include <helper_cuda.h>      // includes for cuda initialization and error checking
 
 
 using namespace std;
@@ -54,20 +48,26 @@ using namespace cv;
 
 int main (int argc, char * argv[]){
 
-  int threshold = atoi(argv[1]);
-
+  int t_in = atoi(argv[1]);
+  unsigned char threshold = (unsigned char)t_in;
+  
+  /*
   // CUDA timing parameters
   cudaEvent_t start, stop;
   cudaEventCreate(&start);
   cudaEventCreate(&stop);
   float ms;
+  */
 
   // file handling using opencv
   // IMREAD_COLOR loads image in BGR 8-bit format
   // IMREAD_UNCHANGED includes alpha channel
   // IMREAD_GRAYSCALE loads as intensity 0-1
+
+  // load image
   string image_path = samples::findFile("peppers.png");
   Mat src = imread(image_path, IMREAD_COLOR);
+
 
   // check if image loaded properly
   if(src.empty()){
@@ -75,33 +75,41 @@ int main (int argc, char * argv[]){
     return 1;
   }
 
-  int height = src.rows;
-  int width = src.cols;
+  // ------------------------------------------
+  // properties of the source and upscaled image
+  // ------------------------------------------
+
+  // input dimensions
+  int src_height = src.rows;
+  int src_width = src.cols;
+
+  // channels (e.g. Red, Green, Blue)
   int channels = src.channels();
-  int type = src.type;
+  //int type = src.type; // CV_8UC3?
 
-  cout << "Loaded " << image_path << "--  " << height << ", " << width << " -- Channels: " << channels << endl;
-  
-  
+  // output dimensions
+  int dst_height = src_height * 3 - 2;
+  int dst_width = src_width * 3 - 2;
+
+
+
   // create new image with same datatype as input
-  unsigned int newHeight = src.rows * 3 - 2;
-  unsigned int newWidth = src.cols * 3 - 2;
-  Mat dst(newHeight, newWidth, type);
+  Mat dst(dst_height, dst_width, CV_8UC3, Scalar(0, 0, 0));
+  //Mat dst(dst_height, dst_width, type);
 
-  cudaEventRecord(start);
-  //void upscale(unsigned char* dst, unsigned char* src, int src_height, int src_width, int src_channels, int threshold)
-  upscale(dst.data, src.data, src.rows, src.cols, channels, threshold);
-  cudaEventRecord(stop);
-  cudaEventSynchronize(stop);
-  cudaEventElapsedTime(&ms, start, stop);
+  cout << "Loaded " << image_path << " --  " << src_height << ", " << src_width << " -- Channels: " << channels << endl;
+  
+  upscale(src.data, dst.data, src_height, src_width, dst_height, dst_width, channels, threshold);
 
+  
+  // create output image. I might not need another Mat -- just use 'dst' instead of 'output'
+  //Mat output = Mat(dst_height, dst_width, type, dst);
+  imshow("source", src);
+  imshow("output", dst);
   imwrite("upscaled_image.png", dst);
   waitKey(0);
 
-  std::cout << "\ntime (ms) = " << ms << std::endl;
-  // clean up (if needed)
-  //cudaFree(dst);
-  //cudaFree(src);
+  //std::cout << "\ntime (ms) = " << ms << std::endl;
 
   return 0;
 }
