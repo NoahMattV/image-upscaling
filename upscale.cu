@@ -31,8 +31,12 @@
 // upscale function is called independently for each color.
 // this allows it to be faster for black and white images as it only needs to be called once.
 // Can therefore also be applied to images which use a different color map than RGB (JPEG, for example).
-#include "upscale.cuh"
+
+#include "cuda_runtime.h"
+#include "device_launch_parameters.h"
 #include <iostream>
+#include "upscale.cuh"
+
 
 
 __global__ void upscale_CUDA(unsigned char* dst, unsigned char* src, int src_height, int src_width, int src_channels, int threshold) {
@@ -66,8 +70,8 @@ __global__ void upscale_CUDA(unsigned char* dst, unsigned char* src, int src_hei
 
     for (int k = 0; k < src_channels; k++) {
 
-        int dst_index = (j * 21 + i * 3) * (k+1); // this is strictly for my predefined dst width and height (*3 -2)
-        int src_index = (j * src_width + i) * (k+1);
+        int dst_index = (j * 21 + i * 3) + (k*dst_elements); // this is strictly for my predefined dst width and height (*3 -2)
+        int src_index = (j * src_width + i) + (k*src_elements);
 
         // transfer known src values to dst
         // to access different channels, the number of elements of the src/dst image must be added to the respective array index.
@@ -145,21 +149,29 @@ void upscale(unsigned char* dst, unsigned char* src, int src_height, int src_wid
   // allocate memory in GPU
   cudaMalloc((void**)&dev_dst, dst_size);
   cudaMalloc((void**)&dev_src, src_size);
+  //cudaMallocManaged(&dst, dst_size);
+  //cudaMallocManaged(&src, src_size);
 
   // copy data from CPU to GPU
   cudaMemcpy(dev_dst, dst, dst_size, cudaMemcpyHostToDevice);
   cudaMemcpy(dev_src, src, src_size, cudaMemcpyHostToDevice);
 
   //dim3 grid_img(src_width, src_height);
-  long int blocks = (src_elements * 1023) / 1024; // allocate just enough blocks to accomodate all threads. Max of 1024 threads per block.
-  upscale_CUDA<<<blocks, 1024>>> (dev_src, src_height, src_width, src_channels, threshold); // <<<blocks, threads per block, shared mem>>>
+  //int blocks = (src_elements * 1023) / 1024; // allocate just enough blocks to accomodate all threads. Max of 1024 threads per block.
+  
+  dim3 dimBlock(32, 32);
+  dim3 dimGrid((dst_width + 31) / 32, (dst_height + 31) / 32);
+  
+  upscale_CUDA<<<dimGrid, dimBlock>>> (dev_src, src_height, src_width, src_channels, threshold); // <<<blocks, threads per block, shared mem>>>
+  //upscale_CUDA <<<dimGrid, dimBlock >>> (src, src_height, src_width, src_channels, threshold); // <<<blocks, threads per block, shared mem>>>
+
   cudaDeviceSynchronize();
 
   // copy data back from GPU to CPU
   cudaMemcpy(dev_dst, dst, dst_size, cudaMemcpyDeviceToHost);
 
   // free GPU
-  cudaFree(dev_src);
   cudaFree(dev_dst);
+  cudaFree(dev_src);
 
 }

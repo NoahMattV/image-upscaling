@@ -8,7 +8,7 @@
 #include "device_launch_parameters.h"
 
 //void upscale(unsigned char* input_img, int height, int width, int channels, int threshold);
-void upscale(unsigned char * dst, unsigned char * src, int src_height, int src_width, int src_channels, int threshold);
+void upscale(unsigned char* dst, unsigned char* src, int src_height, int src_width, int src_channels, int threshold);
 __global__ void upscale_CUDA(unsigned char* dst, unsigned char * src, int src_height, int src_width, int src_channels, int threshold);
 
 #endif

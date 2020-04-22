@@ -12,8 +12,7 @@
 // OpenCV has a resize function which performs a very similar task with adjustable dimensions. They do not, however, utilize GPU or allow for a threshold.
 // It can also be very slow given the interpolation method. 
 
-#include "upscale.cuh"
-//#include "pgm.cuh"
+
 #include <iostream>
 #include <vector>
 #include <stdlib.h>
@@ -27,7 +26,7 @@
 #include <opencv2/opencv.hpp>
 #include <opencv2/core/core.hpp>
 #include <opencv2/highgui/highgui.hpp>
-
+#include "upscale.cuh"
 // may need to change configuration of project
 // Active solution configuration: Release (debug is much slower)
 // Active solution platform: x64
@@ -78,21 +77,16 @@ int main (int argc, char * argv[]){
 
   int height = src.rows;
   int width = src.cols;
-  int channels = src.channels;
+  int channels = src.channels();
   int type = src.type;
 
   cout << "Loaded " << image_path << "--  " << height << ", " << width << " -- Channels: " << channels << endl;
-  
   
   
   // create new image with same datatype as input
   unsigned int newHeight = src.rows * 3 - 2;
   unsigned int newWidth = src.cols * 3 - 2;
   Mat dst(newHeight, newWidth, type);
-
-
-  imwrite("upscaled_image.png", dst);
-  waitKey(0);
 
   cudaEventRecord(start);
   //void upscale(unsigned char* dst, unsigned char* src, int src_height, int src_width, int src_channels, int threshold)
@@ -101,8 +95,13 @@ int main (int argc, char * argv[]){
   cudaEventSynchronize(stop);
   cudaEventElapsedTime(&ms, start, stop);
 
+  imwrite("upscaled_image.png", dst);
+  waitKey(0);
+
   std::cout << "\ntime (ms) = " << ms << std::endl;
   // clean up (if needed)
+  //cudaFree(dst);
+  //cudaFree(src);
 
   return 0;
 }
