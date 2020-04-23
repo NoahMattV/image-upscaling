@@ -39,7 +39,7 @@ void upscale(unsigned char* src, unsigned char* dst, int src_height, int src_wid
     // call upscale function
     //upscale_CUDA<<<blocks, THREADS_PER_BLOCK>>>  (dev_dst, dev_src, src_elements, src_width, src_height, threshold); // <<<blocks, threads per block, shared mem>>>
     dim3 grid(src_width, src_height);
-    Upscale_CUDA << <grid, 1 >> > (dev_dst, dev_src, src_width, src_height, channels, threshold);
+    upscale_CUDA << <grid, 1 >> > (dev_dst, dev_src, src_width, src_height, channels, threshold);
     cudaDeviceSynchronize();
 
     // end timer
@@ -60,6 +60,38 @@ void upscale(unsigned char* src, unsigned char* dst, int src_height, int src_wid
 
 __global__ void upscale_CUDA(unsigned char* dst, unsigned char* src, int src_width, int src_height, int src_channels, unsigned char threshold) {
 
+    int x = blockIdx.x;
+    int y = blockIdx.y;
+
+    int dst_width = src_width * 3 - 2;
+
+    int src_stride = src_width * src_channels;
+    int dst_stride = dst_width * src_channels;
+
+    if (x >= src_width || y >= src_height)
+        return;
+
+    //int dst_index = (y * 21 + x * 3);
+    int dst_index = ((x * 3) + (y * dst_width));
+    int src_index = (x + y * src_width);
+
+    // all channels for a pixel are grouped together. To access an adjacent pixel, you must add by the number of channels.
+    for (int k = 0; k < src_channels; k++) {
+        
+
+        // transfer known src values to dst
+        // to access different channels, the number of elements of the src/dst image must be added to the respective array index.
+        dst[dst_index + k] = src[src_index + k];
+        dst[dst_index + src_channels + k] = src[src_index + k];
+        dst[dst_index + 2*src_channels + k] = src[src_index + k];
+    }
+    __syncthreads();
+}
+
+
+/*
+__global__ void upscale_CUDA(unsigned char* dst, unsigned char* src, int src_width, int src_height, int src_channels, unsigned char threshold) {
+
     // not using shared memory right now
     // there is 48 KB of shared memory available.
     // images are typically more than that, so I'll have to think about how it could be implemented
@@ -71,7 +103,8 @@ __global__ void upscale_CUDA(unsigned char* dst, unsigned char* src, int src_wid
 
     int i = blockIdx.x * blockDim.x + threadIdx.x;
     int j = blockIdx.y * blockDim.y + threadIdx.y;
-
+    int x = blockIdx.x;
+    int y = blockIdx.y;
     // not relevant to code function, but shows how a thread could access a pixel in every channel.
     // pixel values are from 0 to 255.
     //for (int k = 0; k < channels; k++){
@@ -87,6 +120,8 @@ __global__ void upscale_CUDA(unsigned char* dst, unsigned char* src, int src_wid
     int src_stride = src_width * src_channels;
     int dst_stride = dst_width * src_channels;
 
+    
+
     // if invalid location do nothing.
     //if (i >= dst_width || j >= dst_height) // is that width or width-1?
     if (i >= src_width || j >= src_height)
@@ -95,8 +130,10 @@ __global__ void upscale_CUDA(unsigned char* dst, unsigned char* src, int src_wid
     // all channels for a pixel are grouped together. To access an adjacent pixel, you must add by the number of channels.
     for (int k = 0; k < src_channels; k++) {
 
-        int dst_index = (j * 21 + i * 3) + k; // this is strictly for my predefined dst width and height (*3 -2)
-        int src_index = (j * src_width + i) + k;
+        //int dst_index = (j * 21 + i * 3) + k; // this is strictly for my predefined dst width and height (*3 -2)
+        //int src_index = (j * src_width + i) + k;
+        int dst_index = (y * 21 + x * 3) + k;
+        int src_index = (x + y * gridDim.x) + k;
 
         // transfer known src values to dst
         // to access different channels, the number of elements of the src/dst image must be added to the respective array index.
@@ -160,3 +197,4 @@ __global__ void upscale_CUDA(unsigned char* dst, unsigned char* src, int src_wid
     }
     __syncthreads();
 }
+*/
