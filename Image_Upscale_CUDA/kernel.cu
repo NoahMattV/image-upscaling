@@ -194,8 +194,8 @@ __global__ void upscale_CUDA(unsigned char* dst, unsigned char* src, int src_wid
         if (x_diff_0 < threshold) { // apply third-average
             // linear fill
             step = x_diff_0 / 3;
-            dst[dst_index + 1 + k] = src[src_index + k] + step;
-            dst[dst_index + 2 + k] = src[src_index + k] + step * 2;
+            dst[dst_index + src_channels + k] = src[src_index + k] + step;
+            dst[dst_index + 2*src_channels + k] = src[src_index + k] + step * 2;
         }
         else { // nearest neighbor
             dst[dst_index + src_channels] = src[src_index];

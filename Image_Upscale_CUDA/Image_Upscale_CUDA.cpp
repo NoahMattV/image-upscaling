@@ -50,7 +50,7 @@ int main(int argc, char* argv[]) {
 
     //int t_in = atoi(argv[1]);
     //unsigned char threshold = (unsigned char)t_in;
-    unsigned char threshold = 50;
+    unsigned char threshold = 0;
     /*
     // CUDA timing parameters
     cudaEvent_t start, stop;
@@ -65,7 +65,7 @@ int main(int argc, char* argv[]) {
     // IMREAD_GRAYSCALE loads as intensity 0-1
 
     // load image
-    string image_path = samples::findFile("peppers.png");
+    string image_path = samples::findFile("airplane.bmp");
     Mat src = imread(image_path, IMREAD_COLOR);
 
 
@@ -106,7 +106,7 @@ int main(int argc, char* argv[]) {
     //Mat output = Mat(dst_height, dst_width, type, dst);
     imshow("source", src);
     imshow("output", dst);
-    imwrite("upscaled_image.png", dst);
+    imwrite("upscaled_image.bmp", dst);
     waitKey(0);
 
     //std::cout << "\ntime (ms) = " << ms << std::endl;
