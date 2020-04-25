@@ -8,7 +8,7 @@
 #define THREADS_PER_BLOCK 64
 
 __global__ void upscale_CUDA(unsigned char* dst, unsigned char* src, int src_width, int src_height, int src_channels, unsigned char threshold);
-__global__ void stretch_CUDA(unsigned char* dst, unsigned char* src, int src_width, int src_height, int src_channels);
+__global__ void stretch_CUDA(unsigned char* dst, unsigned char* srci, int src_width, int src_height, int src_channels);
 
 void upscale(unsigned char* src, unsigned char* dst, int src_height, int src_width, int dst_height, int dst_width, int channels, unsigned char threshold) {
     // initialize device variables
@@ -29,8 +29,8 @@ void upscale(unsigned char* src, unsigned char* dst, int src_height, int src_wid
     cudaMalloc((void**)&dev_dst, dst_elements);
     cudaMalloc((void**)&dev_src, src_elements);
     // used for shared memory if eventually implemented
-    //cudaMallocManaged(&dst, dst_size);
-    //cudaMallocManaged(&src, src_size);
+    //cudaMallocManaged(&dst, dst_elements);
+    //cudaMallocManaged(&src, src_elements);
 
     // copy data from CPU to GPU
     cudaMemcpy(dev_dst, dst, dst_elements, cudaMemcpyHostToDevice);
@@ -41,11 +41,12 @@ void upscale(unsigned char* src, unsigned char* dst, int src_height, int src_wid
 
     // call upscale function
     //upscale_CUDA<<<blocks, THREADS_PER_BLOCK>>>  (dev_dst, dev_src, src_elements, src_width, src_height, threshold); // <<<blocks, threads per block, shared mem>>>
-    //dim3 grid = ((src_width + 15)/16, (src_height + 15)/16);
-    //dim3 blocks = (16, 16);
-    dim3 grid(src_width, src_height);
-    upscale_CUDA << <grid, 1 >> > (dev_dst, dev_src, src_width, src_height, channels, threshold);
+    dim3 grid((src_width + 31)/32, (src_height + 31)/32);
+    dim3 blocks(32, 32);
+    //dim3 grid(src_width, src_height); // use with <<<grid, 1>>>
+    upscale_CUDA << <grid, blocks >> > (dev_dst, dev_src, src_width, src_height, channels, threshold);
     //stretch_CUDA <<<grid, 1>>>(dev_dst, dev_src, src_width, src_height, channels);
+    //stretch_CUDA << <grid, blocks >> > (dev_dst, dev_src, src_width, src_height, channels);
     cudaDeviceSynchronize();
 
     // end timer
@@ -65,16 +66,17 @@ void upscale(unsigned char* src, unsigned char* dst, int src_height, int src_wid
 }
 
 __global__ void stretch_CUDA(unsigned char* dst, unsigned char* src, int src_width, int src_height, int src_channels) {
-    //int x = blockIdx.x * blockDim.x + threadIdx.x;
-    //int y = blockIdx.y * blockDim.y + threadIdx.y;
-    int x = blockIdx.x;
-    int y = blockIdx.y;
+    int x = blockIdx.x * blockDim.x + threadIdx.x;
+    int y = blockIdx.y * blockDim.y + threadIdx.y;
+    //int x = blockIdx.x;
+    //int y = blockIdx.y;
     
     if (x >= src_width || y >= src_height) 
         return;
 
     int dst_width = src_width * 3 - 2;
-    int dst_index = ((x * 3) + (y * dst_width*3)) * src_channels;
+    //int dst_index = ((x * 3) + (y * dst_width*3)) * src_channels;
+    int dst_index = ((x * 3) + (y * dst_width)) * src_channels;
     int src_index = (x + y * src_width) * src_channels;
     //int dst_index = src_index * 3;
 
@@ -131,10 +133,10 @@ __global__ void upscale_CUDA(unsigned char* dst, unsigned char* src, int src_wid
 
 
 
-    int i = blockIdx.x * blockDim.x + threadIdx.x;
-    int j = blockIdx.y * blockDim.y + threadIdx.y;
-    int x = blockIdx.x;
-    int y = blockIdx.y;
+    int x = blockIdx.x * blockDim.x + threadIdx.x;
+    int y = blockIdx.y * blockDim.y + threadIdx.y;
+    //int x = blockIdx.x;
+    //int y = blockIdx.y;
     // not relevant to code function, but shows how a thread could access a pixel in every channel.
     // pixel values are from 0 to 255.
     //for (int k = 0; k < channels; k++){
@@ -156,7 +158,7 @@ __global__ void upscale_CUDA(unsigned char* dst, unsigned char* src, int src_wid
 
     // if invalid location do nothing.
     //if (i >= dst_width || j >= dst_height) // is that width or width-1?
-    if (i >= src_width || j >= src_height)
+    if (x >= src_width || y >= src_height)
         return;
 
     // all channels for a pixel are grouped together. To access an adjacent pixel, you must add by the number of channels.

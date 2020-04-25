@@ -65,7 +65,7 @@ int main(int argc, char* argv[]) {
     // IMREAD_GRAYSCALE loads as intensity 0-1
 
     // load image
-    string image_path = samples::findFile("airplane.bmp");
+    string image_path = samples::findFile("peppers.png");
     Mat src = imread(image_path, IMREAD_COLOR);
 
 
@@ -106,7 +106,7 @@ int main(int argc, char* argv[]) {
     //Mat output = Mat(dst_height, dst_width, type, dst);
     imshow("source", src);
     imshow("output", dst);
-    imwrite("upscaled_image.bmp", dst);
+    imwrite("upscaled_image.png", dst);
     waitKey(0);
 
     //std::cout << "\ntime (ms) = " << ms << std::endl;
