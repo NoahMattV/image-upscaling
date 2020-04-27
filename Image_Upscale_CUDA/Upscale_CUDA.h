@@ -4,6 +4,6 @@
 #ifndef _Upscale_CUDA_
 #define _Upscale_CUDA_
 
-void upscale(unsigned char* src, unsigned char* dst, int src_height, int src_width, int dst_height, int dst_width, int channels, unsigned char threshold);
+void upscale(unsigned char* src, unsigned char* dst, int src_height, int src_width, int dst_height, int dst_width, int channels, unsigned int threshold);
 
 #endif

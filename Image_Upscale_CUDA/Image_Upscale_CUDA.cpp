@@ -50,7 +50,7 @@ int main(int argc, char* argv[]) {
 
     //int t_in = atoi(argv[1]);
     //unsigned char threshold = (unsigned char)t_in;
-    unsigned char threshold = 0;
+
     /*
     // CUDA timing parameters
     cudaEvent_t start, stop;
@@ -65,15 +65,22 @@ int main(int argc, char* argv[]) {
     // IMREAD_GRAYSCALE loads as intensity 0-1
 
     // load image
-    string image_path = samples::findFile("peppers.png");
-    Mat src = imread(image_path, IMREAD_COLOR);
-
-
+    
+    string filename;
+    cout << "Enter the filename of the image (e.g. peppers.png)...";
+        getline(cin, filename);
+        string image_path = samples::findFile(filename);
+        Mat src = imread(image_path, IMREAD_COLOR);
     // check if image loaded properly
     if (src.empty()) {
         cout << "Could not read image: " << image_path << endl;
         return 1;
     }
+
+    unsigned int threshold;
+    cout << "Above a specified threshold, adjacent pixels will copy nearest neighbor.\nAdjacent pixels below threshold will fill with a linear gradient.\n";
+    cout << "Choose threshold (0 - 255)... ";
+    cin >> threshold;
 
     // ------------------------------------------
     // properties of the source and upscaled image

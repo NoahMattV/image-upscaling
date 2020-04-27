@@ -7,12 +7,20 @@
 #include <iostream>
 #define THREADS_PER_BLOCK 64
 
-__global__ void upscale_CUDA(unsigned char* dst, unsigned char* src, int src_width, int src_height, int src_channels, unsigned char threshold);
-__global__ void stretch_CUDA(unsigned char* dst, unsigned char* srci, int src_width, int src_height, int src_channels);
+__global__ void upscale_CUDA(unsigned char* dst, unsigned char* src, int src_width, int src_height, int channels, unsigned int threshold);
 
-void upscale(unsigned char* src, unsigned char* dst, int src_height, int src_width, int dst_height, int dst_width, int channels, unsigned char threshold) {
+__global__ void stretch_CUDA(unsigned char* dst, unsigned char* src, int src_width, int src_height, int channels, unsigned int threshold);
+__global__ void fill_CUDA(unsigned char* dst, int dst_width, int src_height, int channels, unsigned int threshold);
+
+void upscale(unsigned char* src, unsigned char* dst, int src_height, int src_width, int dst_height, int dst_width, int channels, unsigned int threshold) {
     // initialize device variables
     unsigned char* dev_src, * dev_dst;
+
+    // CUDA timing parameters
+    cudaEvent_t start, stop;
+    cudaEventCreate(&start);
+    cudaEventCreate(&stop);
+    float ms;
 
     // number of elements (if a picture has 3 channels, this is 3 * pixels)
     int dst_elements = dst_width * dst_height * channels;
@@ -28,6 +36,7 @@ void upscale(unsigned char* src, unsigned char* dst, int src_height, int src_wid
     // allocate memory in GPU
     cudaMalloc((void**)&dev_dst, dst_elements);
     cudaMalloc((void**)&dev_src, src_elements);
+
     // used for shared memory if eventually implemented
     //cudaMallocManaged(&dst, dst_elements);
     //cudaMallocManaged(&src, src_elements);
@@ -37,27 +46,30 @@ void upscale(unsigned char* src, unsigned char* dst, int src_height, int src_wid
     cudaMemcpy(dev_src, src, src_elements, cudaMemcpyHostToDevice);
 
     // start timer for performance evaluation
-    //cudaEventRecord(start);
+    cudaEventRecord(start);
 
     // call upscale function
     //upscale_CUDA<<<blocks, THREADS_PER_BLOCK>>>  (dev_dst, dev_src, src_elements, src_width, src_height, threshold); // <<<blocks, threads per block, shared mem>>>
-    dim3 grid((src_width + 31)/32, (src_height + 31)/32);
+    dim3 src_grid((src_width + 31) / 32, (src_height + 31) / 32);
+    dim3 dst_grid((dst_width + 31) / 32, (src_height + 31) / 32);
     dim3 blocks(32, 32);
-    //dim3 grid(src_width, src_height); // use with <<<grid, 1>>>
-    upscale_CUDA << <grid, blocks >> > (dev_dst, dev_src, src_width, src_height, channels, threshold);
-    //stretch_CUDA <<<grid, 1>>>(dev_dst, dev_src, src_width, src_height, channels);
-    //stretch_CUDA << <grid, blocks >> > (dev_dst, dev_src, src_width, src_height, channels);
+
+    stretch_CUDA << <src_grid, blocks >> > (dev_dst, dev_src, src_width, src_height, channels, threshold);
+    cudaDeviceSynchronize();
+    fill_CUDA <<< dst_grid, blocks>>>(dev_dst, dst_width, src_height, channels, threshold);
     cudaDeviceSynchronize();
 
     // end timer
-    /*
     cudaEventRecord(stop);
     cudaEventSynchronize(stop);
     cudaEventElapsedTime(&ms, start, stop);
-    */
+
     // copy data back from GPU to CPU
     cudaMemcpy(dst, dev_dst, dst_elements, cudaMemcpyDeviceToHost);
     //cudaMemcpy(src, dev_src, dst_elements, cudaMemcpyDeviceToHost); // might not need this
+
+    // display time
+    std::cout << "Upscale function finished in " << ms << " ms" << std::endl;
 
     // free GPU
     cudaFree(dev_dst);
@@ -65,94 +77,114 @@ void upscale(unsigned char* src, unsigned char* dst, int src_height, int src_wid
 
 }
 
-__global__ void stretch_CUDA(unsigned char* dst, unsigned char* src, int src_width, int src_height, int src_channels) {
+__global__ void stretch_CUDA(unsigned char* dst, unsigned char* src, int src_width, int src_height, int channels, unsigned int threshold) {
     int x = blockIdx.x * blockDim.x + threadIdx.x;
     int y = blockIdx.y * blockDim.y + threadIdx.y;
-    //int x = blockIdx.x;
-    //int y = blockIdx.y;
     
     if (x >= src_width || y >= src_height) 
         return;
 
     int dst_width = src_width * 3 - 2;
-    //int dst_index = ((x * 3) + (y * dst_width*3)) * src_channels;
-    int dst_index = ((x * 3) + (y * dst_width)) * src_channels;
-    int src_index = (x + y * src_width) * src_channels;
-    //int dst_index = src_index * 3;
+    int dst_index = ((x * 3) + (y * dst_width*3)) * channels;
+    //int dst_index = ((x * 3) + (y * dst_width)) * channels;
+    int src_index = (x + y * src_width) * channels;
 
-    for (int k = 0; k < src_channels; k++) {
-        // transfer known src values to dst
-        // to access different channels, the number of elements of the src/dst image must be added to the respective array index.
-        dst[dst_index + k] = src[src_index + k];
-        dst[dst_index + src_channels + k] = src[src_index + k];
-        dst[dst_index + 2*src_channels + k] = src[src_index + k];
-        
+    int src_stride = src_width * channels;
+    int dst_stride = dst_width * channels;
+    int k;
+
+    unsigned int diff = 0;
+    unsigned int temp = 0;
+    // check every channel for differences. If just one of the channels has a difference above the threshold, then apply nearest neighbor. 
+    // This will prevent unintended color-blending. 
+
+    // horizontal
+    for (k = 0; k < channels; k++) {
+        temp = src[src_index + channels + k] - src[src_index + k]; // difference between two color channels
+        if (temp > diff)
+            diff = temp;
     }
+
+    if (diff > threshold) { // nearest neighbor
+        for (k = 0; k < channels; k++) {
+            dst[dst_index + k] = src[src_index + k];
+            dst[dst_index + channels + k] = src[src_index + k];
+            dst[dst_index + 2 * channels + k] = src[src_index + channels + k];
+        }
+    }
+    else { // linear
+        int step;
+        for (k = 0; k < channels; k++) {
+            step = (src[src_index + k] - src[src_index + channels + k])/3;
+            dst[dst_index + k] = src[src_index + k];
+            dst[dst_index + channels + k] = src[src_index + k] - step;
+            dst[dst_index + 2 * channels + k] = src[src_index + channels + k] - (2 * step);
+        }
+    }
+
 }
-/*
-__global__ void upscale_CUDA(unsigned char* dst, unsigned char* src, int src_width, int src_height, int src_channels, unsigned char threshold) {
 
-    int x = blockIdx.x;
-    int y = blockIdx.y;
+__global__ void fill_CUDA(unsigned char* dst, int dst_width, int src_height, int channels, unsigned int threshold) {
+    int x = blockIdx.x * blockDim.x + threadIdx.x;
+    int y = blockIdx.y * blockDim.y + threadIdx.y;
 
-    int dst_width = src_width * 3 - 2;
-
-    int src_stride = src_width * src_channels;
-    int dst_stride = dst_width * src_channels;
-
-    if (x >= src_width || y >= src_height)
+    if (x >= dst_width || y >= src_height)
         return;
 
-    //int dst_index = (y * 21 + x * 3);
-    int dst_index = ((x * 3) + (y * dst_width));
-    int src_index = (x + y * src_width);
+    int dst_index = (x + (y * dst_width * 3)) * channels;
+    //int dst_index = ((x * 3) + (y * dst_width)) * channels;
 
-    // all channels for a pixel are grouped together. To access an adjacent pixel, you must add by the number of channels.
-    for (int k = 0; k < src_channels; k++) {
-        
+    int dst_stride = dst_width * channels;
+    int k;
 
-        // transfer known src values to dst
-        // to access different channels, the number of elements of the src/dst image must be added to the respective array index.
-        dst[dst_index + k] = src[src_index + k];
-        dst[dst_index + src_channels + k] = src[src_index + k];
-        dst[dst_index + 2*src_channels + k] = src[src_index + k];
+    //if ((dst_index + dst_stride * 2 + channels) > (dst_width * dst_height * channels))
+    //    return;
+
+    //vertical
+    unsigned int diff = 0;
+    unsigned int temp = 0;
+    // check every channel for differences. If just one of the channels has a difference above the threshold, then apply nearest neighbor. 
+    // This will prevent unintended color-blending. 
+
+    for (k = 0; k < channels; k++) {
+        temp = dst[dst_index + k] - dst[dst_index + dst_stride*3 + k]; // difference between two color channels
+        if (temp > diff)
+            diff = temp;
     }
-    __syncthreads();
+
+    if (diff > threshold) { // nearest neighbor
+        for (k = 0; k < channels; k++) {
+            dst[dst_index + dst_stride + k] = dst[dst_index + k];
+            dst[dst_index + dst_stride * 2 + k] = dst[dst_index + dst_stride * 3 + k];
+        }
+    }
+    else { // linear
+        int step;
+        for (k = 0; k < channels; k++) {
+            step = (dst[dst_index + k] - dst[dst_index + dst_stride * 3 + k]) / 3;
+            dst[dst_index + dst_stride + k] = dst[dst_index + k] - step;
+            dst[dst_index + dst_stride * 2 + k] = dst[dst_index + k] - (2 * step);
+        }
+    }
+    
 }
-*/
 
-
-__global__ void upscale_CUDA(unsigned char* dst, unsigned char* src, int src_width, int src_height, int src_channels, unsigned char threshold) {
-
-    // not using shared memory right now
-    // there is 48 KB of shared memory available.
-    // images are typically more than that, so I'll have to think about how it could be implemented
-    //extern __shared__ unsigned char pic[];
-
-  //int pixel = blockIdx.x * blockdim.x + threadIdx.x;
-
-
+__global__ void upscale_CUDA(unsigned char* dst, unsigned char* src, int src_width, int src_height, int channels, unsigned int threshold) {
 
     int x = blockIdx.x * blockDim.x + threadIdx.x;
     int y = blockIdx.y * blockDim.y + threadIdx.y;
-    //int x = blockIdx.x;
-    //int y = blockIdx.y;
-    // not relevant to code function, but shows how a thread could access a pixel in every channel.
-    // pixel values are from 0 to 255.
-    //for (int k = 0; k < channels; k++){
-    //  img[idx + k];
-    //}
+
 
     int dst_width = src_width * 3 - 2;
-    int dst_index = ((x * 3) + (y * dst_width * 3)) * src_channels;
-    int src_index = (x + y * src_width) * src_channels;
+    int dst_index = ((x * 3) + (y * dst_width * 3)) * channels;
+    int src_index = (x + y * src_width) * channels;
     //int dst_height = src_height * 3 - 2;
 
-    //long int dst_elements = dst_width * dst_height * src_channels;
-    //long int src_elements = src_width * src_height * src_channels;
+    //long int dst_elements = dst_width * dst_height * channels;
+    //long int src_elements = src_width * src_height * channels;
 
-    int src_stride = src_width * src_channels;
-    int dst_stride = dst_width * src_channels;
+    int src_stride = src_width * channels;
+    int dst_stride = dst_width * channels;
 
     
 
@@ -162,7 +194,7 @@ __global__ void upscale_CUDA(unsigned char* dst, unsigned char* src, int src_wid
         return;
 
     // all channels for a pixel are grouped together. To access an adjacent pixel, you must add by the number of channels.
-    for (int k = 0; k < src_channels; k++) {
+    for (int k = 0; k < channels; k++) {
 
         //int dst_index = (j * 21 + i * 3) + k; // this is strictly for my predefined dst width and height (*3 -2)
         //int src_index = (j * src_width + i) + k;
@@ -176,8 +208,8 @@ __global__ void upscale_CUDA(unsigned char* dst, unsigned char* src, int src_wid
         if (y_diff < threshold) { // apply third-average
            // linear fill
             int step = y_diff / 3;
-            dst[dst_index + dst_stride+k] = src[src_index+k] + step;
-            dst[dst_index + 2 * dst_stride+k] = src[src_index+k] + step * 2;
+            dst[dst_index + dst_stride+k] = src[src_index+k] - step;
+            dst[dst_index + 2 * dst_stride+k] = src[src_index+k] - step * 2;
         }
         else { // nearest neighbor
             dst[dst_index + dst_stride+k] = src[src_index+k];
@@ -188,42 +220,42 @@ __global__ void upscale_CUDA(unsigned char* dst, unsigned char* src, int src_wid
 
         // horizontal
         // I know this is painfully inefficient. 
-        int x_diff_0 = src[src_index+k] - src[src_index + src_channels+k];
-        int x_diff_1 = dst[dst_index + dst_stride + k] - dst[dst_index + dst_stride + src_channels + k];
-        int x_diff_2 = dst[dst_index + 2 * dst_stride + k] - dst[dst_index + 2 * dst_stride + src_channels + k];
+        unsigned int x_diff_0 = (int)(src[src_index+k] - src[src_index + channels+k]);
+        unsigned int x_diff_1 = (int)(dst[dst_index + dst_stride + k] - dst[dst_index + dst_stride + channels + k]);
+        unsigned int x_diff_2 = (int)(dst[dst_index + 2 * dst_stride + k] - dst[dst_index + 2 * dst_stride + channels + k]);
         int step = 0;
 
         if (x_diff_0 < threshold) { // apply third-average
             // linear fill
             step = x_diff_0 / 3;
-            dst[dst_index + src_channels + k] = src[src_index + k] + step;
-            dst[dst_index + 2*src_channels + k] = src[src_index + k] + step * 2;
+            dst[dst_index + channels + k] = src[src_index + k] - step;
+            dst[dst_index + 2*channels + k] = src[src_index + k] - step * 2;
         }
         else { // nearest neighbor
-            dst[dst_index + src_channels] = src[src_index];
-            dst[dst_index + 2 * src_channels] = src[src_index + src_channels];
+            dst[dst_index + channels] = src[src_index];
+            dst[dst_index + 2 * channels] = src[src_index + channels];
         }
 
         if (x_diff_1 < threshold) { // apply third-average
             // linear fill
             step = x_diff_1 / 3;
-            dst[dst_index + dst_stride + src_channels + k] = dst[dst_index + dst_stride + k] + step;
-            dst[dst_index + dst_stride + 2 * src_channels + k] = dst[dst_index + dst_stride + k] + step * 2;
+            dst[dst_index + dst_stride + channels + k] = dst[dst_index + dst_stride + k] - step;
+            dst[dst_index + dst_stride + 2 * channels + k] = dst[dst_index + dst_stride + k] - step * 2;
         }
         else { // nearest neighbor
-            dst[dst_index + dst_stride + src_channels + k] = dst[dst_index + dst_stride + k];
-            dst[dst_index + dst_stride + 2 * src_channels + k] = dst[dst_index + dst_stride + 3 + k];
+            dst[dst_index + dst_stride + channels + k] = dst[dst_index + dst_stride + k];
+            dst[dst_index + dst_stride + 2 * channels + k] = dst[dst_index + dst_stride + 3 + k];
         }
 
         if (x_diff_2 < threshold) { // apply third-average
             // linear fill
             step = x_diff_2 / 3;
-            dst[dst_index + 2 * dst_stride + src_channels + k] = dst[dst_index + 2 * dst_stride + k] + step;
-            dst[dst_index + 2 * dst_stride + 2 * src_channels + k] = dst[dst_index + 2 * dst_stride + k] + step * 2;
+            dst[dst_index + 2 * dst_stride + channels + k] = dst[dst_index + 2 * dst_stride + k] - step;
+            dst[dst_index + 2 * dst_stride + 2 * channels + k] = dst[dst_index + 2 * dst_stride + k] - step * 2;
         }
         else { // nearest neighbor
-            dst[dst_index + 2 * dst_stride + src_channels + k] = dst[dst_index + 2 * dst_stride + k];
-            dst[dst_index + 2 * dst_stride + 2 * src_channels + k] = dst[dst_index + 2 * dst_stride + 3 + k];
+            dst[dst_index + 2 * dst_stride + channels + k] = dst[dst_index + 2 * dst_stride + k];
+            dst[dst_index + 2 * dst_stride + 2 * channels + k] = dst[dst_index + 2 * dst_stride + 3 + k];
         }
         __syncthreads();
     }
