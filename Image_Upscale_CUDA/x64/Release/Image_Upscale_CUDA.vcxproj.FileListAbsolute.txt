@@ -1,0 +1,2 @@
+C:\Users\Noah\source\repos\Image_Upscale_CUDA\x64\Release\Image_Upscale_CUDA.exe
+C:\Users\Noah\Desktop\image-upscaling\Image_Upscale_CUDA\x64\Release\Image_Upscale_CUDA.exe
