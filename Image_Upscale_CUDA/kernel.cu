@@ -30,9 +30,6 @@ void upscale(unsigned char* src, unsigned char* dst, int src_height, int src_wid
     int dst_size = dst_elements * sizeof(unsigned char);
     int src_size = src_elements * sizeof(unsigned char);
 
-    // number of blocks to call in kernel. Max threads per block is usually 1024
-    //int blocks = (src_elements + THREADS_PER_BLOCK - 1) / THREADS_PER_BLOCK;
-
     // allocate memory in GPU
     cudaMalloc((void**)&dev_dst, dst_elements);
     cudaMalloc((void**)&dev_src, src_elements);
