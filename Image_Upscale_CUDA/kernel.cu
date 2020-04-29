@@ -11,6 +11,7 @@ __global__ void upscale_CUDA(unsigned char* dst, unsigned char* src, int src_wid
 
 __global__ void stretch_CUDA(unsigned char* dst, unsigned char* src, int src_width, int src_height, int channels, unsigned int threshold);
 __global__ void fill_CUDA(unsigned char* dst, int dst_width, int src_height, int channels, unsigned int threshold);
+__global__ void horz_fill_CUDA(unsigned char* dst, int src_width, int dst_height, int channels, unsigned int threshold);
 
 void upscale(unsigned char* src, unsigned char* dst, int src_height, int src_width, int dst_height, int dst_width, int channels, unsigned int threshold) {
     // initialize device variables
@@ -55,6 +56,8 @@ void upscale(unsigned char* src, unsigned char* dst, int src_height, int src_wid
     cudaDeviceSynchronize();
     fill_CUDA <<< dst_grid, blocks>>>(dev_dst, dst_width, src_height, channels, threshold);
     cudaDeviceSynchronize();
+    //horz_fill_CUDA << < dst_grid, blocks >> > (dev_dst, src_width, dst_height, channels, threshold);
+    //cudaDeviceSynchronize();
 
     // end timer
     cudaEventRecord(stop);
@@ -97,7 +100,7 @@ __global__ void stretch_CUDA(unsigned char* dst, unsigned char* src, int src_wid
 
     // horizontal
     for (k = 0; k < channels; k++) {
-        temp = src[src_index + channels + k] - src[src_index + k]; // difference between two color channels
+        temp = abs(src[src_index + channels + k] - src[src_index + k]); // difference between two color channels
         if (temp > diff)
             diff = temp;
     }
@@ -115,7 +118,8 @@ __global__ void stretch_CUDA(unsigned char* dst, unsigned char* src, int src_wid
             step = (src[src_index + k] - src[src_index + channels + k])/3;
             dst[dst_index + k] = src[src_index + k];
             dst[dst_index + channels + k] = src[src_index + k] - step;
-            dst[dst_index + 2 * channels + k] = src[src_index + channels + k] - (2 * step);
+            //dst[dst_index + 2 * channels + k] = src[src_index + channels + k] - (2 * step);
+            dst[dst_index + 2 * channels + k] = src[src_index + k] - (2 * step);
         }
     }
 
@@ -144,7 +148,7 @@ __global__ void fill_CUDA(unsigned char* dst, int dst_width, int src_height, int
     // This will prevent unintended color-blending. 
 
     for (k = 0; k < channels; k++) {
-        temp = dst[dst_index + k] - dst[dst_index + dst_stride*3 + k]; // difference between two color channels
+        temp = abs(dst[dst_index + k] - dst[dst_index + dst_stride*3 + k]); // difference between two color channels
         if (temp > diff)
             diff = temp;
     }
@@ -165,6 +169,54 @@ __global__ void fill_CUDA(unsigned char* dst, int dst_width, int src_height, int
     }
     
 }
+
+
+__global__ void horz_fill_CUDA(unsigned char* dst, int src_width, int dst_height, int channels, unsigned int threshold) {
+    int x = blockIdx.x * blockDim.x + threadIdx.x;
+    int y = blockIdx.y * blockDim.y + threadIdx.y;
+
+    if (x >= src_width || y >= dst_height)
+        return;
+
+    int dst_index = ((x * 3) + (y * src_width)) * channels;
+    //int dst_index = ((x * 3) + (y * dst_width)) * channels;
+
+    int src_stride = src_width * channels;
+    int k;
+
+    //if ((dst_index + dst_stride * 2 + channels) > (dst_width * dst_height * channels))
+    //    return;
+
+
+    unsigned int diff = 0;
+    unsigned int temp = 0;
+    // check every channel for differences. If just one of the channels has a difference above the threshold, then apply nearest neighbor. 
+    // This will prevent unintended color-blending. 
+
+    // horizontal
+    for (k = 0; k < channels; k++) {
+        temp = abs(dst[dst_index + channels*3 + k] - dst[dst_index + k]); // difference between two color channels
+        if (temp > diff)
+            diff = temp;
+    }
+
+    if (diff > threshold) { // nearest neighbor
+        for (k = 0; k < channels; k++) {
+            dst[dst_index + channels + k] = dst[dst_index + k];
+            dst[dst_index + channels * 2 + k] = dst[dst_index + channels * 3 + k];
+        }
+    }
+    else { // linear
+        int step;
+        for (k = 0; k < channels; k++) {
+            step = (dst[dst_index + k] - dst[dst_index + channels * 3 + k]) / 3;
+            dst[dst_index + channels + k] = dst[dst_index + k] - step;
+            dst[dst_index + channels * 2 + k] = dst[dst_index + k] - (2 * step);
+        }
+    }
+
+}
+
 
 __global__ void upscale_CUDA(unsigned char* dst, unsigned char* src, int src_width, int src_height, int channels, unsigned int threshold) {
 
