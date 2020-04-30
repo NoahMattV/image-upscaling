@@ -5,13 +5,13 @@
 #include <stdlib.h>
 #include <math.h>
 #include <iostream>
-#define THREADS_PER_BLOCK 64
+//#define THREADS_PER_BLOCK 64
 
-__global__ void upscale_CUDA(unsigned char* dst, unsigned char* src, int src_width, int src_height, int channels, unsigned int threshold);
+//__global__ void upscale_CUDA(unsigned char* dst, unsigned char* src, int src_width, int src_height, int channels, unsigned int threshold);
 
 __global__ void stretch_CUDA(unsigned char* dst, unsigned char* src, int src_width, int src_height, int channels, unsigned int threshold);
 __global__ void fill_CUDA(unsigned char* dst, int dst_width, int src_height, int channels, unsigned int threshold);
-__global__ void horz_fill_CUDA(unsigned char* dst, int src_width, int dst_height, int channels, unsigned int threshold);
+//__global__ void horz_fill_CUDA(unsigned char* dst, int src_width, int dst_height, int channels, unsigned int threshold);
 
 void upscale(unsigned char* src, unsigned char* dst, int src_height, int src_width, int dst_height, int dst_width, int channels, unsigned int threshold) {
     // initialize device variables
@@ -22,7 +22,7 @@ void upscale(unsigned char* src, unsigned char* dst, int src_height, int src_wid
     cudaEventCreate(&start);
     cudaEventCreate(&stop);
     float ms;
-
+    //float time;
     // number of elements (if a picture has 3 channels, this is 3 * pixels)
     int dst_elements = dst_width * dst_height * channels;
     int src_elements = src_width * src_height * channels;
@@ -43,27 +43,29 @@ void upscale(unsigned char* src, unsigned char* dst, int src_height, int src_wid
     cudaMemcpy(dev_dst, dst, dst_elements, cudaMemcpyHostToDevice);
     cudaMemcpy(dev_src, src, src_elements, cudaMemcpyHostToDevice);
 
-    // start timer for performance evaluation
-    cudaEventRecord(start);
+    //for (int i = 0; i < 10; i++) {
+        // start timer for performance evaluation
+        cudaEventRecord(start);
 
-    // call upscale function
-    //upscale_CUDA<<<blocks, THREADS_PER_BLOCK>>>  (dev_dst, dev_src, src_elements, src_width, src_height, threshold); // <<<blocks, threads per block, shared mem>>>
-    dim3 src_grid((src_width + 31) / 32, (src_height + 31) / 32);
-    dim3 dst_grid((dst_width + 31) / 32, (src_height + 31) / 32);
-    dim3 blocks(32, 32);
+        // call upscale function
+        //upscale_CUDA<<<blocks, THREADS_PER_BLOCK>>>  (dev_dst, dev_src, src_elements, src_width, src_height, threshold); // <<<blocks, threads per block, shared mem>>>
+        dim3 src_grid((src_width + 31) / 32, (src_height + 31) / 32);
+        dim3 dst_grid((dst_width + 31) / 32, (src_height + 31) / 32);
+        dim3 blocks(32, 32);
 
-    stretch_CUDA << <src_grid, blocks >> > (dev_dst, dev_src, src_width, src_height, channels, threshold);
-    cudaDeviceSynchronize();
-    fill_CUDA <<< dst_grid, blocks>>>(dev_dst, dst_width, src_height, channels, threshold);
-    cudaDeviceSynchronize();
-    //horz_fill_CUDA << < dst_grid, blocks >> > (dev_dst, src_width, dst_height, channels, threshold);
-    //cudaDeviceSynchronize();
+        stretch_CUDA << <src_grid, blocks >> > (dev_dst, dev_src, src_width, src_height, channels, threshold);
+        cudaDeviceSynchronize();
+        fill_CUDA << < dst_grid, blocks >> > (dev_dst, dst_width, src_height, channels, threshold);
+        cudaDeviceSynchronize();
+        //horz_fill_CUDA << < dst_grid, blocks >> > (dev_dst, src_width, dst_height, channels, threshold);
+        //cudaDeviceSynchronize();
 
-    // end timer
-    cudaEventRecord(stop);
-    cudaEventSynchronize(stop);
-    cudaEventElapsedTime(&ms, start, stop);
-
+        // end timer
+        cudaEventRecord(stop);
+        cudaEventSynchronize(stop);
+        cudaEventElapsedTime(&ms, start, stop);
+    //    time += ms;
+    //}
     // copy data back from GPU to CPU
     cudaMemcpy(dst, dev_dst, dst_elements, cudaMemcpyDeviceToHost);
     //cudaMemcpy(src, dev_src, dst_elements, cudaMemcpyDeviceToHost); // might not need this
@@ -170,7 +172,7 @@ __global__ void fill_CUDA(unsigned char* dst, int dst_width, int src_height, int
     
 }
 
-
+/*
 __global__ void horz_fill_CUDA(unsigned char* dst, int src_width, int dst_height, int channels, unsigned int threshold) {
     int x = blockIdx.x * blockDim.x + threadIdx.x;
     int y = blockIdx.y * blockDim.y + threadIdx.y;
@@ -216,8 +218,8 @@ __global__ void horz_fill_CUDA(unsigned char* dst, int src_width, int dst_height
     }
 
 }
-
-
+*/
+/*
 __global__ void upscale_CUDA(unsigned char* dst, unsigned char* src, int src_width, int src_height, int channels, unsigned int threshold) {
 
     int x = blockIdx.x * blockDim.x + threadIdx.x;
@@ -310,3 +312,4 @@ __global__ void upscale_CUDA(unsigned char* dst, unsigned char* src, int src_wid
     }
     __syncthreads();
 }
+*/
