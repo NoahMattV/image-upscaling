@@ -11,10 +11,12 @@ It takes a user specified image (placed in the same folder as the .exe) and incr
 The empty pixels are then filled with either a nearest neighbor or linear interpolation based on whether or not the
 values of any of the channels exceed the user-defined threshold. 
 
+![](upscale_show.png)
+
 If threshold is set to 0, then the program simply fills every pixel using nearest neighbor.
 Threshold at 255 is bilinear (or linear)
 
-![]()
+![](threshold_show.png)
 
 # Why this method?
 There are several ways to interpolate an image when resizing. One of the most common is bicubic, which takes pixels 
