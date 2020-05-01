@@ -12,6 +12,9 @@ The empty pixels are then filled with either a nearest neighbor or linear interp
 values of any of the channels exceed the user-defined threshold. 
 
 If threshold is set to 0, then the program simply fills every pixel using nearest neighbor.
+Threshold at 255 is bilinear (or linear)
+
+![]()
 
 # Why this method?
 There are several ways to interpolate an image when resizing. One of the most common is bicubic, which takes pixels 
@@ -29,6 +32,7 @@ upscaled image in some cases.
 - Intel Core i5-7500 CPU @ 3.40 GHz, 4 cores.
 
 # Software used
+- CUDA 10.2
 - Visual Studio 2019
 - OpenCV2 4.3.0
 - Windows 10
